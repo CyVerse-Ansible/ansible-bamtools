@@ -1,0 +1,70 @@
+---
+
+- name: Install cmake
+  package:
+    name: "cmake"
+    state: present
+
+- name: Download bamtools
+  get_url:
+    url: "https://github.com/pezmaster31/bamtools/archive/v{{ VERSION }}.tar.gz"
+    dest: "/tmp/bamtools.tar.gz"
+
+- name: Unarchive the package
+  unarchive:
+    src: "/tmp/bamtools.tar.gz"
+    dest: "/tmp"
+    remote_src: yes
+
+- name: Create build directory
+  file:
+    state: directory
+    path: "/tmp/bamtools-{{ VERSION }}/build"
+
+- name: Build executables with cmake
+  command: "cmake .."
+  args:
+    chdir: "/tmp/bamtools-{{ VERSION }}/build"
+
+- name: Build with make
+  make:
+    chdir: "/tmp/bamtools-{{ VERSION }}/build"
+
+- name: Copy executable files to path
+  copy:
+    remote_src: yes
+    src: "/tmp/bamtools-{{ VERSION }}/bin/bamtools-2.4.1"
+    dest: "/usr/local/bin/bamtools"
+    mode: 0755
+
+- name: Copy library files to lib
+  copy:
+    remote_src: yes
+    src: "/tmp/bamtools-{{ VERSION }}/lib/{{ item }}"
+    dest: "/usr/local/lib/{{ item }}"
+  with_items:
+    - "libjsoncpp.a"
+    - "libbamtools-utils.a"
+    - "libbamtools.a"
+    - "libbamtools.so.2.4.1"
+
+- name: Link one of the library files
+  file:
+    src: "/usr/local/lib/libbamtools.so.{{ VERSION }}"
+    dest: "/usr/local/lib/libbamtools.so"
+    state: link
+
+- name: Add LD_LIBRARY_PATH to bashrc
+  lineinfile:
+    state: present
+    path: "/home/{{ ATMOUSERNAME }}/.bashrc"
+    line: "export LD_LIBRARY_PATH='/usr/local/lib'"
+    insertafter: EOF
+
+- name: Remove temporary files
+  file:
+    state: absent
+    path: "{{ item }}"
+  with_items:
+    - "/tmp/bamtools.tar.gz"
+    - "/tmp/bamtools-{{ VERSION }}"
